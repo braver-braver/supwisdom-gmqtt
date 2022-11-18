@@ -2,11 +2,9 @@ package main
 
 import (
 	"fmt"
-	"os"
-
-	"github.com/spf13/cobra"
-
 	"github.com/DrmagicE/gmqtt/cmd/gmqctl/command"
+	"github.com/spf13/cobra"
+	"os"
 )
 
 var (

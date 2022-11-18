@@ -257,7 +257,7 @@ func (client *client) setConnected(time time.Time) {
 	atomic.StoreInt32(&client.status, Connected)
 }
 
-//Status returns client's status
+// Status returns client's status
 func (client *client) Status() int32 {
 	return atomic.LoadInt32(&client.status)
 }
@@ -551,7 +551,9 @@ func (client *client) connectWithTimeOut() (ok bool) {
 				conn = p.(*packets.Connect)
 				var resp *EnhancedAuthResponse
 				authOpts, resp, err = client.connectHandler(conn)
+				// TODO 实现 err 不为空时候， 返回特定值.
 				if err != nil {
+					
 					break
 				}
 				if resp != nil && resp.Continue {
@@ -1286,7 +1288,7 @@ func (client *client) disconnectHandler(dis *packets.Disconnect) *codes.Error {
 	return nil
 }
 
-//读处理
+// 读处理
 func (client *client) readHandle() {
 	var err error
 	defer func() {
@@ -1441,7 +1443,7 @@ func (client *client) pollMessageHandler() {
 	}
 }
 
-//server goroutine结束的条件:1客户端断开连接 或 2发生错误
+// server goroutine结束的条件:1客户端断开连接 或 2发生错误
 func (client *client) serve() {
 	defer client.internalClose()
 	readWg := &sync.WaitGroup{}

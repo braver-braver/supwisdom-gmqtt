@@ -30,8 +30,9 @@ func (a *Auth) OnBasicAuthWrapper(pre server.OnBasicAuth) server.OnBasicAuth {
 			log.Debug("authentication failed", zap.String("username", string(req.Connect.Username)))
 			v := client.Version()
 			if packets.IsVersion3X(v) {
+				// grpc 远程调用权鉴平台
 				return &codes.Error{
-					Code: codes.V3NotAuthorized,
+					Code: codes.ContinueAuthentication,
 				}
 			}
 			if packets.IsVersion5(v) {

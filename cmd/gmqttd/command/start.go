@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/DrmagicE/gmqtt/pkg/codes"
+	"github.com/DrmagicE/gmqtt/pkg/packets"
 	"net"
 	"net/http"
 	"os"
@@ -93,6 +95,29 @@ func GetListeners(c config.Config) (tcpListeners []net.Listener, websockets []*s
 	return
 }
 
+func GetHooks() server.Hooks {
+	//authentication
+	var onBasicAuth server.OnBasicAuth = func(ctx context.Context, client server.Client, req *server.ConnectRequest) error {
+		username := string(req.Connect.Username)
+		password := string(req.Connect.Password)
+		// check the client version, return a compatible reason code.
+		v := client.Version()
+		if packets.IsVersion3X(v) {
+			fmt.Println(username, password)
+			return codes.NewError(codes.V3BadUsernameorPassword)
+		}
+		if packets.IsVersion5(v) {
+			return codes.NewError(codes.BadUserNameOrPassword)
+		}
+
+		// return nil if pass authentication.
+		return nil
+	}
+	return server.Hooks{
+		OnBasicAuth: onBasicAuth,
+	}
+}
+
 // NewStartCmd creates a *cobra.Command object for start command.
 func NewStartCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -126,6 +151,7 @@ func NewStartCmd() *cobra.Command {
 				server.WithTCPListener(tcpListeners...),
 				server.WithWebsocketServer(websockets...),
 				server.WithLogger(l),
+				server.WithHook(GetHooks()),
 			)
 
 			err = s.Init()

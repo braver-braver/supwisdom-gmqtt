@@ -2,11 +2,10 @@ package server
 
 import (
 	"context"
-	"net"
-
 	"github.com/DrmagicE/gmqtt"
 	"github.com/DrmagicE/gmqtt/persistence/subscription"
 	"github.com/DrmagicE/gmqtt/pkg/packets"
+	"net"
 )
 
 type Hooks struct {

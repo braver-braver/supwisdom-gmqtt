@@ -97,6 +97,10 @@ func main() {
 		return nil
 	}
 
+	// connect hook
+	//var onConnected server.OnConnected = func(ctx context.Context, client server.Client) error {
+	//
+	//}
 	var onMsgArrived server.OnMsgArrived = func(ctx context.Context, client server.Client, req *server.MsgArrivedRequest) error {
 		version := client.Version()
 		if client.ClientOptions().Username == "subscribeonly" {

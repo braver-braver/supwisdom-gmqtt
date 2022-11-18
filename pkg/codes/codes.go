@@ -19,10 +19,10 @@ const (
 	V3NotAuthorized               = 0x05
 )
 
-//  Code
+// Code
 type Code = byte
 
-//  There are the possible reason Code in v5
+// There are the possible reason Code in v5
 const (
 	Success                     Code = 0x00
 	NormalDisconnection         Code = 0x00
