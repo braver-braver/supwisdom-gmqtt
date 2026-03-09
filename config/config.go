@@ -224,16 +224,26 @@ func (c Config) GetLogger(config LogConfig) (l *zap.Logger, err error) {
 	var logLevel zapcore.Level
 	err = logLevel.UnmarshalText([]byte(config.Level))
 	if err != nil {
+		err = fmt.Errorf("invalid log level %q: %w", config.Level, err)
 		return
 	}
-	var core zapcore.Core
-	if config.Format == "json" {
-		core = zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), os.Stdout, logLevel)
-	}
-	if config.Format == "text" {
-		core = zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, logLevel)
+	var encoder zapcore.Encoder
+	switch config.Format {
+	case "json":
+		encCfg := zap.NewProductionEncoderConfig()
+		encoder = zapcore.NewJSONEncoder(encCfg)
+	case "text":
+		encCfg := zap.NewDevelopmentEncoderConfig()
+		encoder = zapcore.NewConsoleEncoder(encCfg)
+	default:
+		return nil, fmt.Errorf("invalid log format %q, available: json|text", config.Format)
 	}
 
-	zaplog := zap.New(core, zap.AddStacktrace(zap.ErrorLevel), zap.AddCaller())
+	core := zapcore.NewCore(encoder, os.Stdout, logLevel)
+	zaplog := zap.New(core,
+		zap.AddStacktrace(zap.ErrorLevel),
+		zap.AddCaller(),
+		zap.ErrorOutput(zapcore.Lock(os.Stderr)),
+	)
 	return zaplog, nil
 }
