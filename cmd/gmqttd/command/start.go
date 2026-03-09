@@ -27,12 +27,16 @@ var (
 
 func must(err error) {
 	if err != nil {
+		if logger != nil {
+			logger.Error("command failed", zap.Error(err))
+		}
 		fmt.Fprint(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
 func installSignal(srv server.Server) {
+	defer server.LogPanic(logger, "installSignal")
 	// reload
 	reloadSignalCh := make(chan os.Signal, 1)
 	signal.Notify(reloadSignalCh, syscall.SIGHUP)
@@ -56,7 +60,7 @@ func installSignal(srv server.Server) {
 		case <-stopSignalCh:
 			err := srv.Stop(context.Background())
 			if err != nil {
-				fmt.Fprint(os.Stderr, err.Error())
+				logger.Error("stop failed", zap.Error(err))
 			}
 		}
 	}
@@ -99,14 +103,20 @@ func GetHooks() server.Hooks {
 	//authentication
 	var onBasicAuth server.OnBasicAuth = func(ctx context.Context, client server.Client, req *server.ConnectRequest) error {
 		username := string(req.Connect.Username)
-		password := string(req.Connect.Password)
 		// check the client version, return a compatible reason code.
 		v := client.Version()
 		if packets.IsVersion3X(v) {
-			fmt.Println(username, password)
+			logger.Warn("basic auth failed",
+				zap.String("username", username),
+				zap.String("client_id", client.ClientOptions().ClientID),
+			)
 			return codes.NewError(codes.V3BadUsernameorPassword)
 		}
 		if packets.IsVersion5(v) {
+			logger.Warn("basic auth failed",
+				zap.String("username", username),
+				zap.String("client_id", client.ClientOptions().ClientID),
+			)
 			return codes.NewError(codes.BadUserNameOrPassword)
 		}
 
@@ -124,6 +134,7 @@ func NewStartCmd() *cobra.Command {
 		Use:   "start",
 		Short: "Start gmqtt broker",
 		Run: func(cmd *cobra.Command, args []string) {
+			defer server.LogPanic(logger, "start-command")
 			var err error
 			must(err)
 			c, err := config.ParseConfig(ConfigFile)
@@ -156,14 +167,14 @@ func NewStartCmd() *cobra.Command {
 
 			err = s.Init()
 			if err != nil {
-				fmt.Println(err)
+				logger.Error("server init failed", zap.Error(err))
 				os.Exit(1)
 				return
 			}
 			go installSignal(s)
 			err = s.Run()
 			if err != nil {
-				fmt.Fprint(os.Stderr, err.Error())
+				logger.Error("server run failed", zap.Error(err))
 				os.Exit(1)
 				return
 			}
