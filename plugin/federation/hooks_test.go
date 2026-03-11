@@ -3,6 +3,7 @@ package federation
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/serf/serf"
@@ -26,8 +27,21 @@ func init() {
 var testConfig = config.Config{
 	Plugins: map[string]config.Configuration{
 		Name: &Config{
-			NodeName: "node0",
+			NodeName:             "node0",
+			FedAddr:              "127.0.0.1:8901",
+			AdvertiseFedAddr:     "127.0.0.1:8901",
+			GossipAddr:           "127.0.0.1:8902",
+			AdvertiseGossipAddr:  "127.0.0.1:8902",
+			RetryJoin:            []string{},
+			RetryInterval:        5 * time.Second,
+			RetryTimeout:         1 * time.Minute,
+			SnapshotPath:         "",
+			RejoinAfterLeave:     false,
 		},
+	},
+	Log: config.LogConfig{
+		Level:  "info",
+		Format: "text",
 	},
 }
 
@@ -35,7 +49,9 @@ func TestFederation_OnMsgArrivedWrapper(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
+	p, err := New(testConfig)
+	a.NoError(err)
+	a.NotNil(p)
 	f := p.(*Federation)
 	f.localSubStore.localStore = mem.NewStore()
 
@@ -116,7 +132,9 @@ func TestFederation_OnMsgArrivedWrapper_SharedSubscription(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
+	p, err := New(testConfig)
+	a.NoError(err)
+	a.NotNil(p)
 	f := p.(*Federation)
 	f.localSubStore.localStore = mem.NewStore()
 
@@ -207,7 +225,9 @@ func TestFederation_OnSubscribedWrapper(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
+	p, err := New(testConfig)
+	a.NoError(err)
+	a.NotNil(p)
 	f := p.(*Federation)
 	f.localSubStore.init(mem.NewStore())
 	f.nodeJoin(serf.MemberEvent{

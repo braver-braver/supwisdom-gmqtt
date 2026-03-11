@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/DrmagicE/gmqtt"
+	"github.com/DrmagicE/gmqtt/config"
 	"github.com/DrmagicE/gmqtt/persistence/subscription/mem"
 	"github.com/DrmagicE/gmqtt/pkg/packets"
 	"github.com/DrmagicE/gmqtt/server"
@@ -210,8 +211,34 @@ func TestFederation_eventStreamHandler(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
+
+	// Use a different port to avoid conflicts with other tests
+	testCfg := config.Config{
+		Plugins: map[string]config.Configuration{
+			Name: &Config{
+				NodeName:             "test-node-event",
+				FedAddr:              "127.0.0.1:18901",
+				AdvertiseFedAddr:     "127.0.0.1:18901",
+				GossipAddr:           "127.0.0.1:18902",
+				AdvertiseGossipAddr:  "127.0.0.1:18902",
+				RetryJoin:            []string{},
+				RetryInterval:        5 * time.Second,
+				RetryTimeout:         1 * time.Minute,
+				SnapshotPath:         "",
+				RejoinAfterLeave:     false,
+			},
+		},
+		Log: config.LogConfig{
+			Level:  "info",
+			Format: "text",
+		},
+	}
+
+	p, err := New(testCfg)
+	a.NoError(err)
+	a.NotNil(p)
 	f := p.(*Federation)
+	// Don't call Unload() to avoid serf.Leave() mock issues
 
 	pub := server.NewMockPublisher(ctrl)
 	f.publisher = pub
@@ -313,8 +340,34 @@ func TestFederation_ListMembers(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
+
+	// Use a different port to avoid conflicts
+	testCfg := config.Config{
+		Plugins: map[string]config.Configuration{
+			Name: &Config{
+				NodeName:             "test-node-list",
+				FedAddr:              "127.0.0.1:28901",
+				AdvertiseFedAddr:     "127.0.0.1:28901",
+				GossipAddr:           "127.0.0.1:28902",
+				AdvertiseGossipAddr:  "127.0.0.1:28902",
+				RetryJoin:            []string{},
+				RetryInterval:        5 * time.Second,
+				RetryTimeout:         1 * time.Minute,
+				SnapshotPath:         "",
+				RejoinAfterLeave:     false,
+			},
+		},
+		Log: config.LogConfig{
+			Level:  "info",
+			Format: "text",
+		},
+	}
+
+	p, err := New(testCfg)
+	a.NoError(err)
+	a.NotNil(p)
 	f := p.(*Federation)
+	// Don't call Unload() to avoid serf.Leave() mock issues
 
 	mockSerf := NewMockiSerf(ctrl)
 	f.serf = mockSerf
@@ -354,13 +407,38 @@ func TestFederation_Join(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
+
+	testCfg := config.Config{
+		Plugins: map[string]config.Configuration{
+			Name: &Config{
+				NodeName:             "test-node-join",
+				FedAddr:              "127.0.0.1:38901",
+				AdvertiseFedAddr:     "127.0.0.1:38901",
+				GossipAddr:           "127.0.0.1:38902",
+				AdvertiseGossipAddr:  "127.0.0.1:38902",
+				RetryJoin:            []string{},
+				RetryInterval:        5 * time.Second,
+				RetryTimeout:         1 * time.Minute,
+				SnapshotPath:         "",
+				RejoinAfterLeave:     false,
+			},
+		},
+		Log: config.LogConfig{
+			Level:  "info",
+			Format: "text",
+		},
+	}
+
+	p, err := New(testCfg)
+	a.NoError(err)
+	a.NotNil(p)
 	f := p.(*Federation)
+	// Don't call Unload() to avoid serf.Leave() mock issues
 
 	mockSerf := NewMockiSerf(ctrl)
 	f.serf = mockSerf
 	mockSerf.EXPECT().Join([]string{"127.0.0.1:" + DefaultGossipPort, "127.0.0.2:1234"}, true).Return(2, nil)
-	_, err := f.Join(context.Background(), &JoinRequest{
+	_, err = f.Join(context.Background(), &JoinRequest{
 		Hosts: []string{
 			"127.0.0.1",
 			"127.0.0.2:1234",
@@ -373,12 +451,37 @@ func TestFederation_Leave(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
+
+	testCfg := config.Config{
+		Plugins: map[string]config.Configuration{
+			Name: &Config{
+				NodeName:             "test-node-leave",
+				FedAddr:              "127.0.0.1:48901",
+				AdvertiseFedAddr:     "127.0.0.1:48901",
+				GossipAddr:           "127.0.0.1:48902",
+				AdvertiseGossipAddr:  "127.0.0.1:48902",
+				RetryJoin:            []string{},
+				RetryInterval:        5 * time.Second,
+				RetryTimeout:         1 * time.Minute,
+				SnapshotPath:         "",
+				RejoinAfterLeave:     false,
+			},
+		},
+		Log: config.LogConfig{
+			Level:  "info",
+			Format: "text",
+		},
+	}
+
+	p, err := New(testCfg)
+	a.NoError(err)
+	a.NotNil(p)
 	f := p.(*Federation)
+	// Don't call Unload() to avoid serf.Leave() mock issues
 	mockSerf := NewMockiSerf(ctrl)
 	f.serf = mockSerf
 	mockSerf.EXPECT().Leave()
-	_, err := f.Leave(context.Background(), nil)
+	_, err = f.Leave(context.Background(), nil)
 	a.NoError(err)
 }
 
@@ -386,12 +489,37 @@ func TestFederation_ForceLeave(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
+
+	testCfg := config.Config{
+		Plugins: map[string]config.Configuration{
+			Name: &Config{
+				NodeName:             "test-node-force",
+				FedAddr:              "127.0.0.1:58901",
+				AdvertiseFedAddr:     "127.0.0.1:58901",
+				GossipAddr:           "127.0.0.1:58902",
+				AdvertiseGossipAddr:  "127.0.0.1:58902",
+				RetryJoin:            []string{},
+				RetryInterval:        5 * time.Second,
+				RetryTimeout:         1 * time.Minute,
+				SnapshotPath:         "",
+				RejoinAfterLeave:     false,
+			},
+		},
+		Log: config.LogConfig{
+			Level:  "info",
+			Format: "text",
+		},
+	}
+
+	p, err := New(testCfg)
+	a.NoError(err)
+	a.NotNil(p)
 	f := p.(*Federation)
+	// Don't call Unload() to avoid serf.Leave() mock issues
 	mockSerf := NewMockiSerf(ctrl)
 	f.serf = mockSerf
 	mockSerf.EXPECT().RemoveFailedNode("node1")
-	_, err := f.ForceLeave(context.Background(), &ForceLeaveRequest{
+	_, err = f.ForceLeave(context.Background(), &ForceLeaveRequest{
 		NodeName: "node1",
 	})
 	a.NoError(err)
@@ -409,8 +537,33 @@ func TestFederation_Hello(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
+
+	testCfg := config.Config{
+		Plugins: map[string]config.Configuration{
+			Name: &Config{
+				NodeName:             "test-node-hello",
+				FedAddr:              "127.0.0.1:18911",
+				AdvertiseFedAddr:     "127.0.0.1:18911",
+				GossipAddr:           "127.0.0.1:18912",
+				AdvertiseGossipAddr:  "127.0.0.1:18912",
+				RetryJoin:            []string{},
+				RetryInterval:        5 * time.Second,
+				RetryTimeout:         1 * time.Minute,
+				SnapshotPath:         "",
+				RejoinAfterLeave:     false,
+			},
+		},
+		Log: config.LogConfig{
+			Level:  "info",
+			Format: "text",
+		},
+	}
+
+	p, err := New(testCfg)
+	a.NoError(err)
+	a.NotNil(p)
 	f := p.(*Federation)
+	// Don't call Unload() to avoid serf.Leave() mock issues
 	clientNodeName := "node1"
 	f.peers[clientNodeName] = &peer{}
 	clientSid := "session_id"

@@ -7,6 +7,7 @@ import (
 
 	"github.com/DrmagicE/gmqtt"
 	"github.com/DrmagicE/gmqtt/persistence/queue"
+	"github.com/DrmagicE/gmqtt/pkg/logging"
 )
 
 // queueNotifier implements queue.Notifier interface.
@@ -28,7 +29,11 @@ func defaultNotifier(dropHook OnMsgDropped, sts *statsManager, clientID string) 
 
 func (q *queueNotifier) notifyDropped(msg *gmqtt.Message, err error) {
 	cid := q.cli.opts.ClientID
-	zaplog.Warn("message dropped", zap.String("client_id", cid), zap.Error(err))
+	zaplog.Warn("message dropped",
+		append(
+			logging.Scene("queue", "drop_message", zap.String("client_id", cid)),
+			logging.Err(err)...,
+		)...)
 	q.sts.messageDropped(msg.QoS, q.cli.opts.ClientID, err)
 	if q.dropHook != nil {
 		q.dropHook(context.Background(), cid, msg, err)
@@ -43,7 +48,11 @@ func (q *queueNotifier) NotifyDropped(elem *queue.Elem, err error) {
 	if pub, ok := elem.MessageWithID.(*queue.Publish); ok {
 		q.notifyDropped(pub.Message, err)
 	} else {
-		zaplog.Warn("message dropped", zap.String("client_id", cid), zap.Error(err))
+		zaplog.Warn("message dropped",
+			append(
+				logging.Scene("queue", "drop_message", zap.String("client_id", cid)),
+				logging.Err(err)...,
+			)...)
 	}
 }
 

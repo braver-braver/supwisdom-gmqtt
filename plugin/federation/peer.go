@@ -17,6 +17,7 @@ import (
 
 	"github.com/DrmagicE/gmqtt"
 	"github.com/DrmagicE/gmqtt/persistence/subscription"
+	"github.com/DrmagicE/gmqtt/pkg/logging"
 )
 
 type peerState byte
@@ -207,8 +208,13 @@ func (p *peer) serveEventStream() {
 			default:
 			}
 			if err != nil {
-				log.Error("stream broken, reconnecting", zap.Error(err),
-					zap.Int("reconnect_count", reconnectCount))
+				log.Error("stream broken, reconnecting",
+					append(
+						logging.Scene("federation", "reconnect_stream",
+							zap.String("remote_node", p.member.Name),
+							zap.Int("reconnect_count", reconnectCount)),
+						logging.Err(err)...,
+					)...)
 				reconnectCount++
 				continue
 			}
@@ -234,7 +240,7 @@ func (p *peer) initStream(client FederationClient, conn *grpc.ClientConn) (s *st
 		SessionId: p.sessionID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("handshake error: %s", err.Error())
+		return nil, fmt.Errorf("handshake error: %w", err)
 	}
 	log.Info("handshake succeed", zap.String("remote_node", p.member.Name), zap.Bool("clean_start", sh.CleanStart))
 	if sh.CleanStart {
@@ -320,7 +326,8 @@ func (s *stream) setError(err error) {
 		s.conn.Close()
 		close(s.close)
 		if err != nil && err != io.EOF {
-			log.Error("stream error", zap.Error(err))
+			log.Error("stream error",
+				append(logging.Scene("federation", "stream", zap.String("remote_node", s.conn.Target())), logging.Err(err)...)...)
 			s.err = err
 		}
 	})

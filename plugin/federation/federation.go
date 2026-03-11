@@ -26,6 +26,7 @@ import (
 	"github.com/DrmagicE/gmqtt/config"
 	"github.com/DrmagicE/gmqtt/persistence/subscription"
 	"github.com/DrmagicE/gmqtt/persistence/subscription/mem"
+	"github.com/DrmagicE/gmqtt/pkg/logging"
 	"github.com/DrmagicE/gmqtt/pkg/packets"
 	"github.com/DrmagicE/gmqtt/retained"
 	"github.com/DrmagicE/gmqtt/server"
@@ -41,13 +42,16 @@ func init() {
 }
 
 func getSerfLogger(level string) (io.Writer, error) {
+	if level == "" {
+		level = "info"
+	}
 	logLevel := strings.ToUpper(level)
 	var zapLevel zapcore.Level
 	err := zapLevel.UnmarshalText([]byte(logLevel))
 	if err != nil {
 		return nil, err
 	}
-	zp, err := zap.NewStdLogAt(log, zapLevel)
+	zp, err := zap.NewStdLogAt(logging.WithCaller(log), zapLevel)
 	if err != nil {
 		return nil, err
 	}
@@ -87,10 +91,13 @@ func getSerfConfig(cfg *Config, eventCh chan serf.Event, logOut io.Writer) *serf
 }
 
 func New(config config.Config) (server.Plugin, error) {
+	cfg := *config.Plugins[Name].(*Config)
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 	log = server.LoggerWithField(zap.String("plugin", Name))
-	cfg := config.Plugins[Name].(*Config)
 	f := &Federation{
-		config:        cfg,
+		config:        &cfg,
 		nodeName:      cfg.NodeName,
 		localSubStore: &localSubStore{},
 		fedSubStore: &fedSubStore{
@@ -109,7 +116,7 @@ func New(config config.Config) (server.Plugin, error) {
 	if err != nil {
 		return nil, err
 	}
-	serfCfg := getSerfConfig(cfg, f.serfEventCh, logOut)
+	serfCfg := getSerfConfig(&cfg, f.serfEventCh, logOut)
 	s, err := serf.Create(serfCfg)
 	if err != nil {
 		return nil, err
@@ -450,7 +457,8 @@ func (f *Federation) eventStreamHandler(sess *session, in *Event) (ack *Ack) {
 func (f *Federation) EventStream(stream Federation_EventStreamServer) (err error) {
 	defer func() {
 		if err != nil && err != io.EOF {
-			log.Error("EventStream error", zap.Error(err))
+			log.Error("event stream failed",
+				append(logging.Scene("federation", "event_stream"), logging.Err(err)...)...)
 		}
 	}()
 	md, ok := metadata.FromIncomingContext(stream.Context())
@@ -549,9 +557,10 @@ func (f *Federation) Load(service server.Server) error {
 	for {
 		select {
 		case <-timeout.C:
-			log.Error("retry timeout", zap.Error(err))
+			log.Error("retry timeout",
+				append(logging.Scene("federation", "retry_join"), logging.Err(err)...)...)
 			if err != nil {
-				err = fmt.Errorf("retry timeout: %s", err.Error())
+				err = fmt.Errorf("retry timeout: %w", err)
 				return err
 			}
 			return errors.New("retry timeout")
@@ -561,7 +570,8 @@ func (f *Federation) Load(service server.Server) error {
 				log.Info("retry join succeed")
 				return nil
 			}
-			log.Info("retry join failed", zap.Error(err))
+			log.Warn("retry join failed",
+				append(logging.Scene("federation", "retry_join"), logging.Err(err)...)...)
 		}
 	}
 }

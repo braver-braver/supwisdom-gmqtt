@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/DrmagicE/gmqtt/pkg/codes"
-	"github.com/DrmagicE/gmqtt/pkg/packets"
 	"net"
 	"net/http"
 	"os"
@@ -16,6 +14,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/DrmagicE/gmqtt/config"
+	"github.com/DrmagicE/gmqtt/pkg/codes"
+	"github.com/DrmagicE/gmqtt/pkg/logging"
+	"github.com/DrmagicE/gmqtt/pkg/packets"
 	"github.com/DrmagicE/gmqtt/pkg/pidfile"
 	"github.com/DrmagicE/gmqtt/server"
 )
@@ -48,7 +49,8 @@ func installSignal(srv server.Server) {
 			var err error
 			c, err = config.ParseConfig(ConfigFile)
 			if err != nil {
-				logger.Error("reload error", zap.Error(err))
+				logger.Error("reload config failed",
+					append(logging.Scene("broker", "reload_config", zap.String("config_file", ConfigFile)), logging.Err(err)...)...)
 				return
 			}
 			srv.ApplyConfig(c)
@@ -56,7 +58,7 @@ func installSignal(srv server.Server) {
 		case <-stopSignalCh:
 			err := srv.Stop(context.Background())
 			if err != nil {
-				fmt.Fprint(os.Stderr, err.Error())
+				logger.Error("stop broker failed", append(logging.Scene("broker", "stop"), logging.Err(err)...)...)
 			}
 		}
 	}
@@ -99,11 +101,15 @@ func GetHooks() server.Hooks {
 	//authentication
 	var onBasicAuth server.OnBasicAuth = func(ctx context.Context, client server.Client, req *server.ConnectRequest) error {
 		username := string(req.Connect.Username)
-		password := string(req.Connect.Password)
 		// check the client version, return a compatible reason code.
 		v := client.Version()
 		if packets.IsVersion3X(v) {
-			fmt.Println(username, password)
+			if logger != nil {
+				logger.Warn("v3 authentication rejected",
+					logging.Scene("broker", "basic_auth",
+						zap.String("client_id", client.ClientOptions().ClientID),
+						zap.String("username", username))...)
+			}
 			return codes.NewError(codes.V3BadUsernameorPassword)
 		}
 		if packets.IsVersion5(v) {
@@ -156,14 +162,14 @@ func NewStartCmd() *cobra.Command {
 
 			err = s.Init()
 			if err != nil {
-				fmt.Println(err)
+				logger.Error("initialize broker failed", append(logging.Scene("broker", "init"), logging.Err(err)...)...)
 				os.Exit(1)
 				return
 			}
 			go installSignal(s)
 			err = s.Run()
 			if err != nil {
-				fmt.Fprint(os.Stderr, err.Error())
+				logger.Error("run broker failed", append(logging.Scene("broker", "run"), logging.Err(err)...)...)
 				os.Exit(1)
 				return
 			}

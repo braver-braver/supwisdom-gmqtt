@@ -21,6 +21,7 @@ import (
 	"github.com/DrmagicE/gmqtt/persistence/session"
 	"github.com/DrmagicE/gmqtt/persistence/unack"
 	"github.com/DrmagicE/gmqtt/pkg/codes"
+	"github.com/DrmagicE/gmqtt/pkg/logging"
 	retained_trie "github.com/DrmagicE/gmqtt/retained/trie"
 
 	"github.com/DrmagicE/gmqtt/persistence/subscription"
@@ -151,8 +152,9 @@ func (c *clientService) TerminateSession(clientID string) {
 	if _, ok := c.srv.offlineClients[clientID]; ok {
 		err := c.srv.sessionTerminatedLocked(clientID, NormalTermination)
 		if err != nil {
-			err = fmt.Errorf("session terminated fail: %s", err.Error())
-			zaplog.Error("session terminated fail", zap.Error(err))
+			err = fmt.Errorf("session terminated fail: %w", err)
+			zaplog.Error("terminate session failed",
+				append(logging.Scene("server", "terminate_session", zap.String("client_id", clientID)), logging.Err(err)...)...)
 		}
 	}
 
@@ -310,9 +312,13 @@ func (srv *server) lockDuplicatedID(c *client) (oldSession *gmqtt.Session, err e
 		oldSession, err = srv.sessionStore.Get(c.opts.ClientID)
 		if err != nil {
 			srv.mu.Unlock()
-			zaplog.Error("fail to get session",
-				zap.String("remote_addr", c.rwc.RemoteAddr().String()),
-				zap.String("client_id", c.opts.ClientID))
+			zaplog.Error("load session failed",
+				append(
+					logging.Scene("server", "load_session",
+						zap.String("remote_addr", c.rwc.RemoteAddr().String()),
+						zap.String("client_id", c.opts.ClientID)),
+					logging.Err(err)...,
+				)...)
 			return
 		}
 		if oldSession != nil {
@@ -423,7 +429,11 @@ func (srv *server) registerClient(connect *packets.Connect, client *client) (ses
 			err = srv.sessionTerminatedLocked(oldSession.ClientID, TakenOverTermination)
 			if err != nil {
 				err = fmt.Errorf("session terminated fail: %w", err)
-				zaplog.Error("session terminated fail", zap.Error(err))
+				zaplog.Error("terminate duplicated session failed",
+					append(
+						logging.Scene("server", "terminate_session", zap.String("client_id", oldSession.ClientID)),
+						logging.Err(err)...,
+					)...)
 			}
 			// Send will message because the previous session is ended.
 			if w, ok := srv.willMessage[client.opts.ClientID]; ok {
@@ -591,10 +601,13 @@ func (srv *server) unregisterClient(client *client) {
 			return
 		}
 	} else {
-		zaplog.Error("fail to get session",
-			zap.String("remote_addr", client.rwc.RemoteAddr().String()),
-			zap.String("client_id", client.opts.ClientID),
-			zap.Error(err))
+		zaplog.Error("load session failed",
+			append(
+				logging.Scene("server", "load_session",
+					zap.String("remote_addr", client.rwc.RemoteAddr().String()),
+					zap.String("client_id", client.opts.ClientID)),
+				logging.Err(err)...,
+			)...)
 	}
 	zaplog.Info("logged out and cleaning session",
 		zap.String("remote_addr", client.rwc.RemoteAddr().String()),
@@ -760,26 +773,32 @@ func (srv *server) removeSessionLocked(clientID string) (err error) {
 	if qs := srv.queueStore[clientID]; qs != nil {
 		queueErr = qs.Clean()
 		if queueErr != nil {
-			zaplog.Error("fail to clean message queue",
-				zap.String("client_id", clientID),
-				zap.Error(queueErr))
+			zaplog.Error("clean message queue failed",
+				append(
+					logging.Scene("server", "remove_session", zap.String("client_id", clientID)),
+					logging.Err(queueErr)...,
+				)...)
 			errs = append(errs, "fail to clean message queue: "+queueErr.Error())
 		}
 		delete(srv.queueStore, clientID)
 	}
 	sessionErr = srv.sessionStore.Remove(clientID)
 	if sessionErr != nil {
-		zaplog.Error("fail to remove session",
-			zap.String("client_id", clientID),
-			zap.Error(sessionErr))
+		zaplog.Error("remove session failed",
+			append(
+				logging.Scene("server", "remove_session", zap.String("client_id", clientID)),
+				logging.Err(sessionErr)...,
+			)...)
 
 		errs = append(errs, "fail to remove session: "+sessionErr.Error())
 	}
 	subErr = srv.subscriptionsDB.UnsubscribeAll(clientID)
 	if subErr != nil {
-		zaplog.Error("fail to remove subscription",
-			zap.String("client_id", clientID),
-			zap.Error(subErr))
+		zaplog.Error("remove subscription failed",
+			append(
+				logging.Scene("server", "remove_session", zap.String("client_id", clientID)),
+				logging.Err(subErr)...,
+			)...)
 
 		errs = append(errs, "fail to remove subscription: "+subErr.Error())
 	}
@@ -1011,7 +1030,11 @@ func (srv *server) serveTCP(l net.Listener) {
 		}
 		client, err := srv.newClient(rw)
 		if err != nil {
-			zaplog.Error("new client fail", zap.Error(err))
+			zaplog.Error("create client failed",
+				append(
+					logging.Scene("server", "accept_client", zap.String("remote_addr", rw.RemoteAddr().String())),
+					logging.Err(err)...,
+				)...)
 			return
 		}
 		go client.serve()
@@ -1027,7 +1050,7 @@ var defaultUpgrader = &websocket.Upgrader{
 	Subprotocols: []string{"mqtt"},
 }
 
-//实现io.ReadWriter接口
+// 实现io.ReadWriter接口
 // wsConn implements the io.readWriter
 type wsConn struct {
 	net.Conn
@@ -1065,7 +1088,10 @@ func (srv *server) serveWebSocket(ws *WsServer) {
 		err = ws.Server.ListenAndServe()
 	}
 	if err != nil && err != http.ErrServerClosed {
-		srv.setError(fmt.Errorf("serveWebSocket error: %s", err.Error()))
+		err = fmt.Errorf("serve websocket: %w", err)
+		zaplog.Error("websocket server failed",
+			append(logging.Scene("server", "serve_websocket", zap.String("bind_address", ws.Server.Addr)), logging.Err(err)...)...)
+		srv.setError(err)
 	}
 }
 
@@ -1359,14 +1385,24 @@ func (srv *server) wsHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := defaultUpgrader.Upgrade(w, r, nil)
 		if err != nil {
-			zaplog.Error("websocket upgrade error", zap.String("Msg", err.Error()))
+			zaplog.Error("websocket upgrade failed",
+				append(
+					logging.Scene("server", "upgrade_websocket",
+						zap.String("remote_addr", r.RemoteAddr),
+						zap.String("path", r.URL.Path)),
+					logging.Err(err)...,
+				)...)
 			return
 		}
 		defer c.Close()
 		conn := &wsConn{c.UnderlyingConn(), c}
 		client, err := srv.newClient(conn)
 		if err != nil {
-			zaplog.Error("new client fail", zap.Error(err))
+			zaplog.Error("create websocket client failed",
+				append(
+					logging.Scene("server", "accept_websocket", zap.String("remote_addr", conn.RemoteAddr().String())),
+					logging.Err(err)...,
+				)...)
 			return
 		}
 		client.serve()
@@ -1460,7 +1496,8 @@ func (srv *server) Stop(ctx context.Context) error {
 
 		select {
 		case <-ctx.Done():
-			zaplog.Warn("server stop timeout, force exit", zap.String("error", ctx.Err().Error()))
+			zaplog.Warn("server stop timeout, force exit",
+				append(logging.Scene("server", "stop"), logging.Err(ctx.Err())...)...)
 			err = ctx.Err()
 			return
 		case <-done:
@@ -1468,7 +1505,8 @@ func (srv *server) Stop(ctx context.Context) error {
 				zaplog.Info("unloading plugin", zap.String("name", v.Name()))
 				err := v.Unload()
 				if err != nil {
-					zaplog.Warn("plugin unload error", zap.String("error", err.Error()))
+					zaplog.Warn("plugin unload failed",
+						append(logging.Scene("server", "unload_plugin", zap.String("name", v.Name())), logging.Err(err)...)...)
 				}
 			}
 			if srv.hooks.OnStop != nil {

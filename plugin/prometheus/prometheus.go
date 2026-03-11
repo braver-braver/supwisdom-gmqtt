@@ -11,6 +11,7 @@ import (
 
 	"github.com/DrmagicE/gmqtt/config"
 	"github.com/DrmagicE/gmqtt/persistence/subscription"
+	"github.com/DrmagicE/gmqtt/pkg/logging"
 	"github.com/DrmagicE/gmqtt/server"
 )
 
@@ -57,7 +58,9 @@ func (p *Prometheus) Load(service server.Server) error {
 	go func() {
 		err := p.httpServer.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-			panic(err.Error())
+			log.Error("prometheus server failed",
+				append(logging.Scene("prometheus", "serve", zap.String("bind_address", p.httpServer.Addr)), logging.Err(err)...)...)
+			panic(err)
 		}
 	}()
 	return nil

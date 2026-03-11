@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseConfig(t *testing.T) {
@@ -33,4 +34,18 @@ func TestParseConfig(t *testing.T) {
 			a.Equal(v.expected, c)
 		})
 	}
+}
+
+func TestLogConfigValidate(t *testing.T) {
+	require.NoError(t, DefaultConfig().Log.Validate())
+	require.Equal(t, "error", DefaultConfig().Log.StacktraceLevel)
+	require.True(t, DefaultConfig().Log.EnableCaller)
+
+	err := LogConfig{
+		Level:           "info",
+		Format:          "text",
+		EnableCaller:    true,
+		StacktraceLevel: "fatal",
+	}.Validate()
+	require.EqualError(t, err, "invalid stacktrace level: fatal")
 }

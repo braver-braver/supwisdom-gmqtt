@@ -1,12 +1,19 @@
+//go:build !windows
 // +build !windows
 
 package persistence
 
 import (
-	"os/exec"
+	"errors"
+	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
+	redigo "github.com/gomodule/redigo/redis"
+	"github.com/ory/dockertest/v3"
+	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 
@@ -36,16 +43,54 @@ func init() {
 
 type RedisSuite struct {
 	suite.Suite
-	p server.Persistence
+	p        server.Persistence
+	pool     *dockertest.Pool
+	resource *dockertest.Resource
+}
+
+func (s *RedisSuite) SetupSuite() {
+	pool, err := newContainerPool()
+	if err != nil {
+		s.T().Skipf("container runtime unavailable: %v", err)
+	}
+	s.pool = pool
+	s.pool.MaxWait = 30 * time.Second
+
+	resource, err := s.pool.RunWithOptions(&dockertest.RunOptions{
+		Repository:   "docker.io/library/redis",
+		Tag:          "7-alpine",
+		ExposedPorts: []string{"6379/tcp"},
+	}, func(hostConfig *dc.HostConfig) {
+		hostConfig.AutoRemove = true
+		hostConfig.RestartPolicy = dc.RestartPolicy{Name: "no"}
+	})
+	if err != nil {
+		s.T().Fatalf("fail to start redis container: %v", err)
+	}
+	s.resource = resource
+	redisConfig.Addr = resource.GetHostPort("6379/tcp")
+
+	err = s.pool.Retry(func() error {
+		p, err := NewRedis(config.Config{
+			Persistence: config.Persistence{
+				Type:  config.PersistenceTypeRedis,
+				Redis: redisConfig,
+			},
+		})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			_ = p.Close()
+		}()
+		return p.Open()
+	})
+	if err != nil {
+		s.T().Fatalf("fail to open redis: %v", err)
+	}
 }
 
 func (s *RedisSuite) SetupTest() {
-	_, err := runContainer()
-	if err != nil {
-		s.Suite.T().Fatalf("fail to start redis container: %s", err)
-	}
-	time.Sleep(2 * time.Second) // wait for redis start
-
 	p, err := NewRedis(config.Config{
 		Persistence: config.Persistence{
 			Type:  config.PersistenceTypeRedis,
@@ -53,17 +98,41 @@ func (s *RedisSuite) SetupTest() {
 		},
 	})
 	if err != nil {
-		s.Suite.T().Fatal(err.Error())
+		s.T().Fatalf("fail to create redis persistence: %v", err)
 	}
-	err = p.Open()
-	if err != nil {
-		s.Suite.T().Fatal("fail to open redis", err)
+	if err := p.Open(); err != nil {
+		s.T().Fatalf("fail to open redis persistence: %v", err)
 	}
 	s.p = p
 }
 
+func (s *RedisSuite) TearDownTest() {
+	if s.p != nil {
+		_ = s.p.Close()
+		s.p = nil
+	}
+	conn, err := redigo.Dial("tcp", redisConfig.Addr)
+	if err != nil {
+		s.T().Fatalf("fail to connect redis: %v", err)
+	}
+	defer conn.Close()
+	if pswd := redisConfig.Password; pswd != "" {
+		if _, err := conn.Do("AUTH", pswd); err != nil {
+			s.T().Fatalf("fail to auth redis: %v", err)
+		}
+	}
+	if _, err := conn.Do("SELECT", redisConfig.Database); err != nil {
+		s.T().Fatalf("fail to select redis db: %v", err)
+	}
+	if _, err := conn.Do("FLUSHALL"); err != nil {
+		s.T().Fatalf("fail to flush redis: %v", err)
+	}
+}
+
 func (s *RedisSuite) TearDownSuite() {
-	stopContainer()
+	if s.pool != nil && s.resource != nil {
+		_ = s.pool.Purge(s.resource)
+	}
 }
 
 func (s *RedisSuite) TestQueue() {
@@ -104,15 +173,81 @@ func TestRedis(t *testing.T) {
 	suite.Run(t, &RedisSuite{})
 }
 
-func runContainer() (string, error) {
-	_ = exec.Command("/bin/sh", "-c", "docker rm -f gmqtt-testing").Run()
-	cmd := exec.Command("/bin/sh", "-c", "docker run -d --name gmqtt-testing -p 6379:6379 redis")
-	name, err := cmd.Output()
-	if err != nil {
-		return "", err
+func newContainerPool() (*dockertest.Pool, error) {
+	var errs []string
+	for _, endpoint := range containerEndpoints() {
+		pool, err := newRuntimePool(endpoint)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("%q: %v", endpoint, err))
+			continue
+		}
+		return pool, nil
 	}
-	return string(name), nil
+	return nil, errors.New(strings.Join(errs, "; "))
 }
-func stopContainer() {
-	_ = exec.Command("/bin/sh", "-c", "docker rm -f gmqtt-testing").Run()
+
+func containerEndpoints() []string {
+	endpoints := make([]string, 0, 4)
+	if host := os.Getenv("DOCKER_HOST"); host != "" {
+		endpoints = append(endpoints, host)
+	}
+	for _, socket := range []string{
+		fmt.Sprintf("unix:///run/user/%d/podman/podman.sock", os.Getuid()),
+		"unix:///run/podman/podman.sock",
+		"",
+	} {
+		if socket == "" {
+			endpoints = append(endpoints, socket)
+			continue
+		}
+		if _, err := os.Stat(strings.TrimPrefix(socket, "unix://")); err == nil {
+			endpoints = append(endpoints, socket)
+		}
+	}
+	return endpoints
+}
+
+func newRuntimePool(endpoint string) (*dockertest.Pool, error) {
+	var (
+		pool *dockertest.Pool
+		err  error
+	)
+	withContainerProxyDisabled(func() {
+		pool, err = dockertest.NewPool(endpoint)
+		if err != nil {
+			return
+		}
+		err = pool.Client.Ping()
+	})
+	if err != nil {
+		return nil, err
+	}
+	return pool, nil
+}
+
+func withContainerProxyDisabled(fn func()) {
+	keys := []string{
+		"http_proxy", "https_proxy", "all_proxy", "no_proxy",
+		"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
+	}
+	saved := make(map[string]*string, len(keys))
+	for _, key := range keys {
+		if value, ok := os.LookupEnv(key); ok {
+			v := value
+			saved[key] = &v
+		} else {
+			saved[key] = nil
+		}
+		_ = os.Unsetenv(key)
+	}
+	defer func() {
+		for _, key := range keys {
+			if value := saved[key]; value != nil {
+				_ = os.Setenv(key, *value)
+				continue
+			}
+			_ = os.Unsetenv(key)
+		}
+	}()
+	fn()
 }

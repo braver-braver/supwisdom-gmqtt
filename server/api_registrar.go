@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"github.com/DrmagicE/gmqtt/config"
+	"github.com/DrmagicE/gmqtt/pkg/logging"
 )
 
 // APIRegistrar is the registrar for all gRPC servers and HTTP servers.
@@ -126,7 +127,7 @@ func buildGRPCServer(endpoint *config.Endpoint) (*gRPCServer, error) {
 	server := grpc.NewServer(
 		grpc.Creds(cred),
 		grpc.ChainUnaryInterceptor(
-			grpc_zap.UnaryServerInterceptor(zaplog, grpc_zap.WithLevels(func(code gcodes.Code) zapcore.Level {
+			grpc_zap.UnaryServerInterceptor(logging.WithCaller(zaplog), grpc_zap.WithLevels(func(code gcodes.Code) zapcore.Level {
 				if code == gcodes.OK {
 					return zapcore.DebugLevel
 				}
@@ -217,7 +218,8 @@ func (srv *server) serveAPIServer() {
 	defer func() {
 		srv.wg.Done()
 		if err != nil {
-			zaplog.Error("serveAPIServer error", zap.Error(err))
+			zaplog.Error("serve api server failed",
+				append(logging.Scene("server", "serve_api"), logging.Err(err)...)...)
 			srv.setError(err)
 		}
 	}()

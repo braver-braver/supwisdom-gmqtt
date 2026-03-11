@@ -6,6 +6,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/hashicorp/serf/serf"
 	"go.uber.org/zap"
+
+	"github.com/DrmagicE/gmqtt/pkg/logging"
 )
 
 // iSerf is the interface for *serf.Serf.
@@ -90,7 +92,7 @@ func (f *Federation) nodeFail(member serf.MemberEvent) {
 			continue
 		}
 		if p, ok := f.peers[v.Name]; ok {
-			log.Error("node failed, close stream client", zap.String("node_name", v.Name))
+			log.Error("node failed, close stream client", logging.Scene("federation", "member_failed", zap.String("node_name", v.Name))...)
 			p.stop()
 			delete(f.peers, v.Name)
 			_ = f.fedSubStore.UnsubscribeAll(v.Name)

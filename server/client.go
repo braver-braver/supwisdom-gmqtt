@@ -28,6 +28,7 @@ import (
 	"github.com/DrmagicE/gmqtt/persistence/unack"
 	"github.com/DrmagicE/gmqtt/pkg/bitmap"
 	"github.com/DrmagicE/gmqtt/pkg/codes"
+	"github.com/DrmagicE/gmqtt/pkg/logging"
 	"github.com/DrmagicE/gmqtt/pkg/packets"
 )
 
@@ -271,9 +272,12 @@ func (client *client) setError(err error) {
 	client.errOnce.Do(func() {
 		if err != nil && err != io.EOF {
 			zaplog.Error("connection lost",
-				zap.String("client_id", client.opts.ClientID),
-				zap.String("remote_addr", client.rwc.RemoteAddr().String()),
-				zap.Error(err))
+				append(
+					logging.Scene("client", "disconnect",
+						zap.String("client_id", client.opts.ClientID),
+						zap.String("remote_addr", client.rwc.RemoteAddr().String())),
+					logging.Err(err)...,
+				)...)
 			client.err = err
 			if client.version == packets.Version5 {
 				if code, ok := err.(*codes.Error); ok {
@@ -403,7 +407,14 @@ func (client *client) readLoop() {
 		packet, err = client.packetReader.ReadPacket()
 		if err != nil {
 			if err != io.EOF && packet != nil {
-				zaplog.Error("read error", zap.String("packet_type", reflect.TypeOf(packet).String()))
+				zaplog.Error("read packet failed",
+					append(
+						logging.Scene("client", "read_packet",
+							zap.String("packet_type", reflect.TypeOf(packet).String()),
+							zap.String("remote_addr", client.rwc.RemoteAddr().String()),
+							zap.String("client_id", client.opts.ClientID)),
+						logging.Err(err)...,
+					)...)
 			}
 			return
 		}
@@ -553,7 +564,7 @@ func (client *client) connectWithTimeOut() (ok bool) {
 				authOpts, resp, err = client.connectHandler(conn)
 				// TODO 实现 err 不为空时候， 返回特定值.
 				if err != nil {
-					
+
 					break
 				}
 				if resp != nil && resp.Continue {
@@ -911,12 +922,15 @@ func (client *client) subscribeHandler(sub *packets.Subscribe) *codes.Error {
 		if code < packets.SubscribeFailure {
 			subRs, err = srv.subscriptionsDB.Subscribe(client.opts.ClientID, sub)
 			if err != nil {
-				zaplog.Error("failed to subscribe topic",
-					zap.String("topic", v.Name),
-					zap.Uint8("qos", v.Qos),
-					zap.String("client_id", client.opts.ClientID),
-					zap.String("remote_addr", client.rwc.RemoteAddr().String()),
-					zap.Error(err))
+				zaplog.Error("subscribe topic failed",
+					append(
+						logging.Scene("client", "subscribe",
+							zap.String("topic", v.Name),
+							zap.Uint8("qos", v.Qos),
+							zap.String("client_id", client.opts.ClientID),
+							zap.String("remote_addr", client.rwc.RemoteAddr().String())),
+						logging.Err(err)...,
+					)...)
 				code = packets.SubscribeFailure
 			}
 		}
@@ -1276,9 +1290,13 @@ func (client *client) disconnectHandler(dis *packets.Disconnect) *codes.Error {
 		if disExpiry != 0 {
 			err := client.server.sessionStore.SetSessionExpiry(sess.ClientID, disExpiry)
 			if err != nil {
-				zaplog.Error("fail to set session expiry",
-					zap.String("client_id", client.opts.ClientID),
-					zap.Error(err))
+				zaplog.Error("set session expiry failed",
+					append(
+						logging.Scene("client", "set_session_expiry",
+							zap.String("client_id", client.opts.ClientID),
+							zap.Uint32("session_expiry", disExpiry)),
+						logging.Err(err)...,
+					)...)
 			}
 		}
 	}
@@ -1477,7 +1495,11 @@ func (client *client) serve() {
 	if client.queueStore != nil {
 		qerr := client.queueStore.Close()
 		if qerr != nil {
-			zaplog.Error("fail to close message queue", zap.String("client_id", client.opts.ClientID), zap.Error(qerr))
+			zaplog.Error("close message queue failed",
+				append(
+					logging.Scene("client", "close_queue", zap.String("client_id", client.opts.ClientID)),
+					logging.Err(qerr)...,
+				)...)
 		}
 	}
 	if client.pl != nil {

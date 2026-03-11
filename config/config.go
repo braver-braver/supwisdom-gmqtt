@@ -42,8 +42,10 @@ func DefaultConfig() Config {
 		MQTT:      DefaultMQTTConfig,
 		API:       DefaultAPI,
 		Log: LogConfig{
-			Level:  "info",
-			Format: "text",
+			Level:           "info",
+			Format:          "text",
+			EnableCaller:    true,
+			StacktraceLevel: "error",
 		},
 		Plugins:           make(pluginConfig),
 		Persistence:       DefaultPersistenceConfig,
@@ -76,6 +78,10 @@ type LogConfig struct {
 	Level string `yaml:"level"`
 	// Format is the log format. Possible values: json, text
 	Format string `yaml:"format"`
+	// EnableCaller indicates whether to include the caller file and line in logs.
+	EnableCaller bool `yaml:"enable_caller"`
+	// StacktraceLevel is the minimum level that emits stacktraces. Possible values: warn, error, panic.
+	StacktraceLevel string `yaml:"stacktrace_level"`
 	// DumpPacket indicates whether to dump MQTT packet in debug level.
 	DumpPacket bool `yaml:"dump_packet"`
 }
@@ -86,6 +92,9 @@ func (l LogConfig) Validate() error {
 	}
 	if l.Format != "json" && l.Format != "text" {
 		return fmt.Errorf("invalid log format: %s", l.Format)
+	}
+	if l.StacktraceLevel != "warn" && l.StacktraceLevel != "error" && l.StacktraceLevel != "panic" {
+		return fmt.Errorf("invalid stacktrace level: %s", l.StacktraceLevel)
 	}
 	return nil
 }
@@ -226,6 +235,10 @@ func (c Config) GetLogger(config LogConfig) (l *zap.Logger, err error) {
 	if err != nil {
 		return
 	}
+	stacktraceLevel, err := getStacktraceLevel(config.StacktraceLevel)
+	if err != nil {
+		return nil, err
+	}
 	var core zapcore.Core
 	if config.Format == "json" {
 		core = zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), os.Stdout, logLevel)
@@ -234,6 +247,23 @@ func (c Config) GetLogger(config LogConfig) (l *zap.Logger, err error) {
 		core = zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, logLevel)
 	}
 
-	zaplog := zap.New(core, zap.AddStacktrace(zap.ErrorLevel), zap.AddCaller())
+	options := []zap.Option{zap.AddStacktrace(stacktraceLevel)}
+	if config.EnableCaller {
+		options = append(options, zap.AddCaller())
+	}
+	zaplog := zap.New(core, options...)
 	return zaplog, nil
+}
+
+func getStacktraceLevel(level string) (zapcore.Level, error) {
+	switch level {
+	case "warn":
+		return zap.WarnLevel, nil
+	case "error":
+		return zap.ErrorLevel, nil
+	case "panic":
+		return zap.PanicLevel, nil
+	default:
+		return 0, fmt.Errorf("invalid stacktrace level: %s", level)
+	}
 }
