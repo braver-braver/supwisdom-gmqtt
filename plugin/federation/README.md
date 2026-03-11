@@ -3,11 +3,21 @@
 Federation is a kind of clustering mechanism which provides high-availability and horizontal scaling.
 In Federation mode, multiple gmqtt brokers can be grouped together and "act as one".
 However, it is impossible to fulfill all requirements in MQTT specification in a distributed environment.
-There are some limitations:  
-1. Persistent session cannot be resumed from another node.  
+There are some limitations:
+1. Persistent session cannot be resumed from another node.
 2. Clients with same client id can connect to different nodes at the same time and will not be kicked out.
 
 This is because session information only stores in local node and does not share between nodes.
+
+## Features
+
+- **High Availability**: Multiple broker nodes provide redundancy
+- **Horizontal Scaling**: Add more nodes to handle increased load
+- **Automatic Discovery**: Nodes automatically discover and connect to each other
+- **Shared Subscriptions**: Load balancing across federation nodes
+- **Session Persistence**: Each node maintains its own session state
+- **Gossip Protocol**: Uses Serf for efficient membership management
+- **gRPC Communication**: Fast and reliable inter-node messaging
 
 ## Quick Start
 The following commands will start a two nodes federation, the configuration files can be found [here](./examples).  
@@ -208,6 +218,157 @@ and forwards the message to the relevant node according to the message topic,
 and then the relevant node retrieves the local subscription tree and sends the message to the relevant subscriber.
 
 ### Membership Management
-Federation uses [Serf](https://github.com/hashicorp/serf) to manage membership.  
+Federation uses [Serf](https://github.com/hashicorp/serf) to manage membership.
 
+#### Node States
+- **Alive**: Node is healthy and participating in the federation
+- **Failed**: Node is unreachable (temporary network issue)
+- **Left**: Node has gracefully left the federation
 
+#### Failure Detection
+Serf uses a gossip-based failure detection mechanism:
+- Periodic health checks between nodes
+- Configurable timeout and retry parameters
+- Automatic removal of failed nodes after timeout
+
+## Troubleshooting
+
+### Common Issues
+
+#### Port Conflicts
+**Problem**: `Failed to start TCP listener: bind: address already in use`
+
+**Solution**: Ensure `fed_addr` and `gossip_addr` ports are not in use:
+```bash
+# Check if ports are in use
+netstat -tuln | grep 8901
+netstat -tuln | grep 8902
+
+# Change ports in configuration
+federation:
+  fed_addr: "127.0.0.1:9901"
+  gossip_addr: "127.0.0.1:9902"
+```
+
+#### Nodes Not Joining
+**Problem**: Nodes fail to join the federation
+
+**Solution**:
+1. Check network connectivity between nodes
+2. Verify `retry_join` addresses are correct
+3. Ensure firewall allows traffic on gossip ports
+4. Check logs for detailed error messages
+
+#### Split Brain
+**Problem**: Federation splits into multiple isolated groups
+
+**Solution**:
+- Ensure stable network connectivity
+- Use proper `retry_join` configuration
+- Monitor Serf logs for partition events
+- Consider using `snapshot_path` for persistence
+
+### Logging
+
+Federation plugin uses structured logging with the following fields:
+- `module`: Always "federation"
+- `op`: Operation name (e.g., "event_stream", "retry_join", "reconnect_stream")
+- `error`: Error message if operation failed
+- `error_chain`: Full error chain for debugging
+
+Example log entries:
+```
+level=error module=federation op=retry_join error="retry timeout: connection refused" error_chain=["retry timeout: connection refused", "connection refused"]
+level=warn module=federation op=reconnect_stream remote_node=node2 reconnect_count=3 error="stream broken"
+level=info module=federation op=member_joined node_name=node3
+```
+
+## Performance Considerations
+
+### Network Bandwidth
+- Each published message may be forwarded to multiple nodes
+- Shared subscriptions reduce redundant message forwarding
+- Consider network topology when deploying federation
+
+### Latency
+- Inter-node communication adds latency to message delivery
+- Use low-latency network connections between nodes
+- Deploy nodes in the same data center when possible
+
+### Scalability
+- Federation scales horizontally by adding more nodes
+- Each node handles its own client connections
+- Subscription tree size grows with number of topics and nodes
+
+## Best Practices
+
+1. **Use Stable Node Names**: Set explicit `node_name` instead of relying on hostname
+2. **Configure Retry Parameters**: Adjust `retry_interval` and `retry_timeout` based on network conditions
+3. **Enable Snapshots**: Use `snapshot_path` to persist membership information
+4. **Monitor Health**: Use Prometheus metrics to monitor federation health
+5. **Plan Network Topology**: Deploy nodes with reliable network connectivity
+6. **Use Shared Subscriptions**: Leverage shared subscriptions for load balancing
+7. **Test Failure Scenarios**: Regularly test node failures and network partitions
+
+## API Reference
+
+See [swagger documentation](./swagger/federation.swagger.json) for complete API reference.
+
+### Key Endpoints
+
+- `POST /v1/federation/join` - Join nodes to federation
+- `POST /v1/federation/leave` - Leave federation gracefully
+- `POST /v1/federation/force-leave` - Force remove a failed node
+- `GET /v1/federation/members` - List all federation members
+
+## Examples
+
+See [examples directory](./examples) for complete configuration examples:
+- `node1_config.yml` - First node with retry_join
+- `node2_config.yml` - Second node joining via retry_join
+- `join_node3_config.yml` - Node joining via API
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all federation tests
+go test -v ./plugin/federation/
+
+# Run specific test
+go test -v ./plugin/federation/ -run TestFederation_OnMsgArrivedWrapper
+
+# Run with race detection
+go test -race ./plugin/federation/
+```
+
+### Generating Mocks
+
+```bash
+# Generate all mocks
+go generate ./plugin/federation/
+
+# Or use the mock generation script
+./mock_gen.sh
+```
+
+### Protocol Buffers
+
+The federation protocol is defined in `protos/federation.proto`. To regenerate:
+
+```bash
+# Install protoc and plugins
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
+
+# Generate code
+protoc --go_out=. --go-grpc_out=. --grpc-gateway_out=. protos/federation.proto
+```
+
+## References
+
+- [Serf Documentation](https://www.serf.io/docs/)
+- [gRPC Documentation](https://grpc.io/docs/)
+- [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
