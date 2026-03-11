@@ -33,14 +33,14 @@ Gmqtt use `-c` flag to define configuration path. If not set, gmqtt reads `$HOME
 
 ## session persistence
 Gmqtt uses memory to store session data by default and it is the recommended way because of the good performance.
-But the session data will be lose after the broker restart. You can use redis as backend storage to prevent data 
-loss from restart: 
+But the session data will be lose after the broker restart. You can use redis as backend storage to prevent data
+loss from restart:
 ```yaml
 persistence:
-  type: redis  
+  type: redis
   redis:
     # redis server address
-    addr: "127.0.0.1:6379"
+    addr: "localhost:6379"
     # the maximum number of idle connections in the redis connection pool
     max_idle: 1000
     # the maximum number of connections allocated by the redis connection pool at a given time.
@@ -48,7 +48,7 @@ persistence:
     max_active: 0
     # the connection idle timeout, connection will be closed after remaining idle for this duration. If the value is zero, then idle connections are not closed
     idle_timeout: 240s
-    password: ""
+    password: ""  # Set your Redis password here if authentication is enabled
     # the number of the redis database
     database: 0
 ```
@@ -63,14 +63,14 @@ plugin_order:
   - prometheus
   - admin
 ```
-When auth plugin enabled, every clients need an account to get connected.You can add accounts through the HTTP API: 
+When auth plugin enabled, every clients need an account to get connected.You can add accounts through the HTTP API:
 ```bash
-# Create: username = user1, password = user1pass
-$ curl -X POST -d '{"password":"user1pass"}' 127.0.0.1:8083/v1/accounts/user1
+# Create account (replace with your actual username and password)
+$ curl -X POST -d '{"password":"<your-password>"}' localhost:8083/v1/accounts/<username>
 {}
-# Query
-$ curl 127.0.0.1:8083/v1/accounts/user1
-{"account":{"username":"user1","password":"20a0db53bc1881a7f739cd956b740039"}}
+# Query account
+$ curl localhost:8083/v1/accounts/<username>
+{"account":{"username":"<username>","password":"<hashed-password>"}}
 ```
 API Doc [swagger](https://github.com/DrmagicE/gmqtt/blob/master/plugin/auth/swagger)
 

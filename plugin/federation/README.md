@@ -31,18 +31,18 @@ $ gmqttd start -c path/to/retry_join/node2_config2.yml
 ```
 After node1 and node2 is started, they will join into one federation atomically. 
 
-We can test the federation with `mosquitto_pub/sub`:  
+We can test the federation with `mosquitto_pub/sub`:
 Connect to node2 and subscribe topicA:
 ```bash
-$ mosquitto_sub -t topicA -h 127.0.0.1 -p 1884
+$ mosquitto_sub -t topicA -h <node2-host> -p <node2-port>
 ```
 Connect to node1 and send a message to topicA:
 ```bash
-$ mosquitto_pub -t topicA -m 123 -h 127.0.0.1 -p 1883
+$ mosquitto_pub -t topicA -m 123 -h <node1-host> -p <node1-port>
 ```
 The `mosquitto_sub` will receive "123" and print it in the terminal.
 ```bash
-$ mosquitto_sub -t topicA -h 127.0.0.1 -p 1884
+$ mosquitto_sub -t topicA -h <node2-host> -p <node2-port>
 123
 ```
 
@@ -56,40 +56,41 @@ $ gmqttd start -c path/to/retry_join/join_node3_config.yml
 ```
 We can send `Join` request to any nodes in the federation to get node3 joined, for example, sends `Join` request to node1:
 ```bash
-$ curl -X POST -d '{"hosts":["127.0.0.1:8932"]}'  '127.0.0.1:8083/v1/federation/join' 
-{}                                                                                                
+# Replace with your actual node addresses
+$ curl -X POST -d '{"hosts":["<node3-gossip-addr>"]}'  'localhost:8083/v1/federation/join'
+{}
 ```
-And check the members in federation: 
+And check the members in federation:
 ```bash
-curl http://127.0.0.1:8083/v1/federation/members   
+curl http://localhost:8083/v1/federation/members
 {
     "members": [
         {
             "name": "node1",
-            "addr": "192.168.0.105:8902",
+            "addr": "<node1-gossip-addr>",
             "tags": {
-                "fed_addr": "192.168.0.105:8901"
+                "fed_addr": "<node1-fed-addr>"
             },
             "status": "STATUS_ALIVE"
         },
         {
             "name": "node2",
-            "addr": "192.168.0.105:8912",
+            "addr": "<node2-gossip-addr>",
             "tags": {
-                "fed_addr": "192.168.0.105:8911"
+                "fed_addr": "<node2-fed-addr>"
             },
             "status": "STATUS_ALIVE"
         },
         {
             "name": "node3",
-            "addr": "192.168.0.105:8932",
+            "addr": "<node3-gossip-addr>",
             "tags": {
-                "fed_addr": "192.168.0.105:8931"
+                "fed_addr": "<node3-fed-addr>"
             },
             "status": "STATUS_ALIVE"
         }
     ]
-}%
+}
 ```
 You will see there are 3 nodes ara alive in the federation.
 
@@ -241,13 +242,12 @@ Serf uses a gossip-based failure detection mechanism:
 **Solution**: Ensure `fed_addr` and `gossip_addr` ports are not in use:
 ```bash
 # Check if ports are in use
-netstat -tuln | grep 8901
-netstat -tuln | grep 8902
+netstat -tuln | grep <port>
 
 # Change ports in configuration
 federation:
-  fed_addr: "127.0.0.1:9901"
-  gossip_addr: "127.0.0.1:9902"
+  fed_addr: "<host>:<port>"
+  gossip_addr: "<host>:<port>"
 ```
 
 #### Nodes Not Joining

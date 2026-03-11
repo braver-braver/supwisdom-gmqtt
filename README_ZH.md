@@ -36,19 +36,19 @@ Gmqtt默认使用内存存储，这也是Gmqtt推荐的存储方式，内存存�
 如果你希望重启后session不丢失，可以配置redis持久化存储：
 ```yaml
 persistence:
-  type: redis  
+  type: redis
   redis:
-    # redis server address
-    addr: "127.0.0.1:6379"
-    # the maximum number of idle connections in the redis connection pool
+    # redis 服务器地址
+    addr: "localhost:6379"
+    # redis 连接池中的最大空闲连接数
     max_idle: 1000
-    # the maximum number of connections allocated by the redis connection pool at a given time.
-    # If zero, there is no limit on the number of connections in the pool.
+    # redis 连接池在给定时间分配的最大连接数
+    # 如果为零，则池中的连接数没有限制
     max_active: 0
-    # the connection idle timeout, connection will be closed after remaining idle for this duration. If the value is zero, then idle connections are not closed
+    # 连接空闲超时时间，连接在此持续时间内保持空闲后将被关闭。如果值为零，则不关闭空闲连接
     idle_timeout: 240s
-    password: ""
-    # the number of the redis database
+    password: ""  # 如果启用了认证，请在此设置您的 Redis 密码
+    # redis 数据库编号
     database: 0
 ```
 
@@ -64,12 +64,12 @@ plugin_order:
 ```
 加载后，需要添加账户才可以连接，可以通过HTTP接口来添加账户：
 ```bash
-# 创建： username = user1, password = user1pass
-$ curl -X POST -d '{"password":"user1pass"}' 127.0.0.1:8083/v1/accounts/user1
+# 创建账号（请替换为实际的用户名和密码）
+$ curl -X POST -d '{"password":"<your-password>"}' localhost:8083/v1/accounts/<username>
 {}
-# 查询：
-$ curl 127.0.0.1:8083/v1/accounts/user1
-{"account":{"username":"user1","password":"20a0db53bc1881a7f739cd956b740039"}}
+# 查询账号
+$ curl localhost:8083/v1/accounts/<username>
+{"account":{"username":"<username>","password":"<hashed-password>"}}
 ```
 API文档：[swagger](https://github.com/DrmagicE/gmqtt/blob/master/plugin/auth/swagger)
 
