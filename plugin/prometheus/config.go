@@ -11,6 +11,8 @@ type Config struct {
 	ListenAddress string `yaml:"listen_address"`
 	// Path is the exporter url path.
 	Path string `yaml:"path"`
+	// EnableDashboard enables the web UI dashboard.
+	EnableDashboard bool `yaml:"enable_dashboard"`
 }
 
 // Validate validates the configuration, and return an error if it is invalid.
@@ -24,8 +26,9 @@ func (c *Config) Validate() error {
 
 // DefaultConfig is the default configuration.
 var DefaultConfig = Config{
-	ListenAddress: ":8082",
-	Path:          "/metrics",
+	ListenAddress:   ":8082",
+	Path:            "/metrics",
+	EnableDashboard: true,
 }
 
 func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {

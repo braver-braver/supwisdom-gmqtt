@@ -44,10 +44,15 @@ go test -race ./...
 # Or use make
 make test
 
+# Run a single test
+go test -race ./path/to/package -run TestName
+
 # Generate test coverage
 make test-cover
 
 # Run benchmarks
+go test -bench ./...
+# Or use make
 make test-bench
 ```
 
@@ -150,3 +155,6 @@ When contributing code:
 **Topic Matching**: Subscription matching uses a trie data structure (`persistence/subscription/mem/topic_trie.go`) for efficient wildcard topic filtering.
 
 **Message Flow**: Published messages go through `OnMsgArrived` hooks, then are matched against subscriptions, queued for delivery, and finally delivered through `OnDelivered` hooks.
+
+## bd for memory
+Use 'bd' for task tracking

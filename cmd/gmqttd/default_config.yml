@@ -112,6 +112,7 @@ plugins:
   prometheus:
     path: "/metrics"
     listen_address: ":8082"
+    enable_dashboard: true  # Set to false to disable the web UI dashboard
   auth:
     # Password hash type. (plain | md5 | sha256 | bcrypt)
     # Default to MD5.

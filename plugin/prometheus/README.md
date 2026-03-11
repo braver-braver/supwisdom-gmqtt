@@ -1,6 +1,33 @@
 # Prometheus
-`Prometheus` implements the prometheus exporter for gmqtt.   
-Default URL: 127.0.0.1:8082/metrics
+`Prometheus` implements the prometheus exporter for gmqtt with an optional web UI dashboard.
+
+**Metrics Endpoint**: http://127.0.0.1:8082/metrics
+**Web Dashboard**: http://127.0.0.1:8082/ or http://127.0.0.1:8082/dashboard
+
+# Configuration
+
+```yaml
+plugins:
+  prometheus:
+    path: "/metrics"              # URL path for Prometheus metrics endpoint
+    listen_address: ":8082"       # Address to listen on
+    enable_dashboard: true        # Enable/disable web UI dashboard (default: true)
+```
+
+# Web Dashboard
+
+The plugin includes a built-in web dashboard that displays broker metrics in real-time:
+- Auto-refreshes every 5 seconds
+- Shows connections, messages, packets, and subscriptions
+- Responsive design for desktop and mobile
+- No external dependencies required
+
+To disable the dashboard while keeping the metrics endpoint:
+```yaml
+plugins:
+  prometheus:
+    enable_dashboard: false
+```
 
 # Metrics
 

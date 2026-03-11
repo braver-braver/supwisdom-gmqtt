@@ -2,6 +2,7 @@ package prometheus
 
 import (
 	"context"
+	"embed"
 	"net/http"
 	"sync/atomic"
 
@@ -14,6 +15,9 @@ import (
 	"github.com/DrmagicE/gmqtt/pkg/logging"
 	"github.com/DrmagicE/gmqtt/server"
 )
+
+//go:embed web/dashboard.html
+var dashboardHTML embed.FS
 
 var _ server.Plugin = (*Prometheus)(nil)
 
@@ -33,8 +37,9 @@ func New(config config.Config) (server.Plugin, error) {
 		Addr: cfg.ListenAddress,
 	}
 	return &Prometheus{
-		httpServer: httpServer,
-		path:       cfg.Path,
+		httpServer:      httpServer,
+		path:            cfg.Path,
+		enableDashboard: cfg.EnableDashboard,
 	}, nil
 }
 
@@ -42,9 +47,10 @@ var log *zap.Logger
 
 // Prometheus served as a prometheus exporter that exposes gmqtt metrics.
 type Prometheus struct {
-	statsManager server.StatsReader
-	httpServer   *http.Server
-	path         string
+	statsManager    server.StatsReader
+	httpServer      *http.Server
+	path            string
+	enableDashboard bool
 }
 
 func (p *Prometheus) Load(service server.Server) error {
@@ -54,6 +60,13 @@ func (p *Prometheus) Load(service server.Server) error {
 	r.MustRegister(p)
 	mu := http.NewServeMux()
 	mu.Handle(p.path, promhttp.Handler())
+
+	// Register dashboard handlers if enabled
+	if p.enableDashboard {
+		mu.HandleFunc("/", p.serveDashboard)
+		mu.HandleFunc("/dashboard", p.serveDashboard)
+	}
+
 	p.httpServer.Handler = mu
 	go func() {
 		err := p.httpServer.ListenAndServe()
@@ -72,6 +85,17 @@ func (p *Prometheus) Unload() error {
 
 func (p *Prometheus) Name() string {
 	return Name
+}
+
+func (p *Prometheus) serveDashboard(w http.ResponseWriter, r *http.Request) {
+	content, err := dashboardHTML.ReadFile("web/dashboard.html")
+	if err != nil {
+		http.Error(w, "Dashboard not available", http.StatusInternalServerError)
+		log.Error("failed to read dashboard file", zap.Error(err))
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(content)
 }
 
 func (p *Prometheus) Describe(desc chan<- *prometheus.Desc) {
