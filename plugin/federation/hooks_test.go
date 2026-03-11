@@ -132,7 +132,30 @@ func TestFederation_OnMsgArrivedWrapper_SharedSubscription(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, err := New(testConfig)
+
+	// Use unique port for this test
+	testCfg := config.Config{
+		Plugins: map[string]config.Configuration{
+			Name: &Config{
+				NodeName:             "test-node-shared",
+				FedAddr:              "127.0.0.1:8911",
+				AdvertiseFedAddr:     "127.0.0.1:8911",
+				GossipAddr:           "127.0.0.1:8912",
+				AdvertiseGossipAddr:  "127.0.0.1:8912",
+				RetryJoin:            []string{},
+				RetryInterval:        5 * time.Second,
+				RetryTimeout:         1 * time.Minute,
+				SnapshotPath:         "",
+				RejoinAfterLeave:     false,
+			},
+		},
+		Log: config.LogConfig{
+			Level:  "info",
+			Format: "text",
+		},
+	}
+
+	p, err := New(testCfg)
 	a.NoError(err)
 	a.NotNil(p)
 	f := p.(*Federation)
@@ -225,7 +248,30 @@ func TestFederation_OnSubscribedWrapper(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, err := New(testConfig)
+
+	// Use unique port for this test
+	testCfg := config.Config{
+		Plugins: map[string]config.Configuration{
+			Name: &Config{
+				NodeName:             "test-node-subscribed",
+				FedAddr:              "127.0.0.1:9901",
+				AdvertiseFedAddr:     "127.0.0.1:9901",
+				GossipAddr:           "127.0.0.1:9902",
+				AdvertiseGossipAddr:  "127.0.0.1:9902",
+				RetryJoin:            []string{},
+				RetryInterval:        5 * time.Second,
+				RetryTimeout:         1 * time.Minute,
+				SnapshotPath:         "",
+				RejoinAfterLeave:     false,
+			},
+		},
+		Log: config.LogConfig{
+			Level:  "info",
+			Format: "text",
+		},
+	}
+
+	p, err := New(testCfg)
 	a.NoError(err)
 	a.NotNil(p)
 	f := p.(*Federation)
@@ -272,9 +318,35 @@ func TestFederation_OnSubscribedWrapper(t *testing.T) {
 }
 
 func TestFederation_OnUnsubscribedWrapper(t *testing.T) {
+	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
+
+	// Use unique port for this test
+	testCfg := config.Config{
+		Plugins: map[string]config.Configuration{
+			Name: &Config{
+				NodeName:             "test-node-unsubscribed",
+				FedAddr:              "127.0.0.1:10901",
+				AdvertiseFedAddr:     "127.0.0.1:10901",
+				GossipAddr:           "127.0.0.1:10902",
+				AdvertiseGossipAddr:  "127.0.0.1:10902",
+				RetryJoin:            []string{},
+				RetryInterval:        5 * time.Second,
+				RetryTimeout:         1 * time.Minute,
+				SnapshotPath:         "",
+				RejoinAfterLeave:     false,
+			},
+		},
+		Log: config.LogConfig{
+			Level:  "info",
+			Format: "text",
+		},
+	}
+
+	p, err := New(testCfg)
+	a.NoError(err)
+	a.NotNil(p)
 	f := p.(*Federation)
 	f.localSubStore.init(mem.NewStore())
 	f.nodeJoin(serf.MemberEvent{
@@ -320,10 +392,35 @@ func TestFederation_OnUnsubscribedWrapper(t *testing.T) {
 }
 
 func TestFederation_OnSessionTerminatedWrapper(t *testing.T) {
+	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	a := assert.New(t)
-	p, _ := New(testConfig)
+
+	// Use unique port for this test
+	testCfg := config.Config{
+		Plugins: map[string]config.Configuration{
+			Name: &Config{
+				NodeName:             "test-node-terminated",
+				FedAddr:              "127.0.0.1:11901",
+				AdvertiseFedAddr:     "127.0.0.1:11901",
+				GossipAddr:           "127.0.0.1:11902",
+				AdvertiseGossipAddr:  "127.0.0.1:11902",
+				RetryJoin:            []string{},
+				RetryInterval:        5 * time.Second,
+				RetryTimeout:         1 * time.Minute,
+				SnapshotPath:         "",
+				RejoinAfterLeave:     false,
+			},
+		},
+		Log: config.LogConfig{
+			Level:  "info",
+			Format: "text",
+		},
+	}
+
+	p, err := New(testCfg)
+	a.NoError(err)
+	a.NotNil(p)
 	f := p.(*Federation)
 	f.localSubStore.init(mem.NewStore())
 	f.nodeJoin(serf.MemberEvent{
