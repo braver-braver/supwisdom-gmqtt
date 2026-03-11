@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "supwisdom_gmqtt",
+  "project_id": "183a7b38-a693-439e-adc0-907e837f5822"
+}
