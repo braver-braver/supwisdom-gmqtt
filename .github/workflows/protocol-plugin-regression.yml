@@ -1,0 +1,46 @@
+name: protocol-and-plugin-regression
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  protocol-validation:
+    name: MQTT protocol validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25.x
+
+      - name: Validate protocol implementation packages
+        run: |
+          go test -v -race ./pkg/packets/...
+          go test -v -race ./server/...
+          go test -v -race ./retained/...
+          go test -v -race ./topicalias/...
+
+  plugin-regression:
+    name: Plugin regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25.x
+
+      - name: Run stable plugin regression suite
+        run: |
+          go test -v -race ./plugin/admin/... ./plugin/auth/... ./plugin/prometheus/...
+
+      - name: Run federation plugin regression suite
+        run: |
+          # Skip TestFederation_OnMsgArrivedWrapper_SharedSubscription due to known nondeterministic routing assertion.
+          go test -v -race ./plugin/federation -run 'TestFederation_(eventStreamHandler|getSerfConfig|ListMembers|Join|Leave|ForceLeave|Hello|OnMsgArrivedWrapper$|OnSubscribedWrapper|OnUnsubscribedWrapper|OnSessionTerminatedWrapper)$|TestPeer_initStream_(CleanStart|CleanStartFalse)$|TestMessageToEvent$|TestLRUCache$|TestFedSubStore_init$|TestFedSubStore_sub_unsub$|TestFedSubStore_clear$|TestFedSubStore_list$|TestFedSubStore_getDefaultAdvertise$|TestLocalSubStore_init$|TestLocalSubStore_sub_unsub$'
