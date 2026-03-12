@@ -2,7 +2,11 @@ name: protocol-and-plugin-regression
 
 on:
   push:
+    branches:
+      - master
   pull_request:
+    branches:
+      - master
 
 jobs:
   protocol-validation:
@@ -43,4 +47,4 @@ jobs:
       - name: Run federation plugin regression suite
         run: |
           # Skip TestFederation_OnMsgArrivedWrapper_SharedSubscription due to known nondeterministic routing assertion.
-          go test -v -race ./plugin/federation -run 'TestFederation_(eventStreamHandler|getSerfConfig|ListMembers|Join|Leave|ForceLeave|Hello|OnMsgArrivedWrapper$|OnSubscribedWrapper|OnUnsubscribedWrapper|OnSessionTerminatedWrapper)$|TestPeer_initStream_(CleanStart|CleanStartFalse)$|TestMessageToEvent$|TestLRUCache$|TestFedSubStore_init$|TestFedSubStore_sub_unsub$|TestFedSubStore_clear$|TestFedSubStore_list$|TestFedSubStore_getDefaultAdvertise$|TestLocalSubStore_init$|TestLocalSubStore_sub_unsub$'
+          go test -v -race ./plugin/federation -run 'TestFederation_(eventStreamHandler|getSerfConfig|ListMembers|Join|Leave|ForceLeave|Hello|OnMsgArrivedWrapper$|OnSubscribedWrapper|OnUnsubscribedWrapper|OnSessionTerminatedWrapper)$|TestPeer_initStream_(CleanStart|CleanStartFalse)$|TestMessageToEvent$|TestLRUCache$|TestFedSubStore_init$|TestFedSubStore_sub_unsub$|TestFedSubStore_clear$|TestFedSubStore_list$|TestFedSubStore_getDefaultAdvertise$|TestLocalSubStore_init$|TestLocalSubStore_sub_unsub$|TestConfig_Validate$'
