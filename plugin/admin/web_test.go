@@ -9,6 +9,7 @@ import (
 
 	"github.com/DrmagicE/gmqtt/persistence/subscription"
 	"github.com/DrmagicE/gmqtt/server"
+	"google.golang.org/grpc"
 )
 
 type dashboardStatsReader struct {
@@ -109,5 +110,20 @@ func TestDashboardOverviewRejectsWrites(t *testing.T) {
 	}
 	if got := resp.Header().Get("Allow"); got != http.MethodGet {
 		t.Fatalf("Allow = %q, want %q", got, http.MethodGet)
+	}
+}
+
+type dashboardLegacyRegistrar struct{}
+
+func (dashboardLegacyRegistrar) RegisterHTTPHandler(server.HTTPHandler) error {
+	return nil
+}
+
+func (dashboardLegacyRegistrar) RegisterService(*grpc.ServiceDesc, interface{}) {}
+
+func TestRegisterDashboardHTTPSkipsUnsupportedRegistrar(t *testing.T) {
+	admin := &Admin{}
+	if err := admin.registerDashboardHTTP(dashboardLegacyRegistrar{}); err != nil {
+		t.Fatalf("registerDashboardHTTP() error = %v", err)
 	}
 }

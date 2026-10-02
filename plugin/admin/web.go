@@ -3,7 +3,6 @@ package admin
 import (
 	"embed"
 	"encoding/json"
-	"errors"
 	"io/fs"
 	"net/http"
 	"strconv"
@@ -71,7 +70,7 @@ type httpRouteRegistrar interface {
 func (a *Admin) registerDashboardHTTP(g server.APIRegistrar) error {
 	routes, ok := g.(httpRouteRegistrar)
 	if !ok {
-		return errors.New("api registrar does not support standard HTTP routes")
+		return nil
 	}
 	handler, err := newDashboardHandler()
 	if err != nil {

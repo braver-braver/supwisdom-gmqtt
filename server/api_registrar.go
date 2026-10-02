@@ -63,7 +63,7 @@ func (a *apiRegistrar) RegisterHTTPHandler(fn HTTPHandler) error {
 	return nil
 }
 
-// RegisterHTTPRoute implements APIRegistrar interface.
+// RegisterHTTPRoute registers a standard HTTP handler to all HTTP servers.
 func (a *apiRegistrar) RegisterHTTPRoute(pattern string, handler http.Handler) {
 	for _, v := range a.httpServers {
 		v.rootMux.Handle(pattern, handler)
