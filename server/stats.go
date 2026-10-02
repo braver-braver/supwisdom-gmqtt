@@ -135,12 +135,12 @@ func (s *statsManager) messageReceived(qos uint8, clientID string) {
 		atomic.AddUint64(&s.totalStats.MessageStats.Qos1.ReceivedTotal, 1)
 		s.clientMu.Lock()
 		defer s.clientMu.Unlock()
-		atomic.AddUint64(&s.getClientStats(clientID).MessageStats.Qos0.ReceivedTotal, 1)
+		atomic.AddUint64(&s.getClientStats(clientID).MessageStats.Qos1.ReceivedTotal, 1)
 	case packets.Qos2:
 		atomic.AddUint64(&s.totalStats.MessageStats.Qos2.ReceivedTotal, 1)
 		s.clientMu.Lock()
 		defer s.clientMu.Unlock()
-		atomic.AddUint64(&s.getClientStats(clientID).MessageStats.Qos0.ReceivedTotal, 1)
+		atomic.AddUint64(&s.getClientStats(clientID).MessageStats.Qos2.ReceivedTotal, 1)
 	}
 }
 
@@ -155,12 +155,12 @@ func (s *statsManager) messageSent(qos uint8, clientID string) {
 		atomic.AddUint64(&s.totalStats.MessageStats.Qos1.SentTotal, 1)
 		s.clientMu.Lock()
 		defer s.clientMu.Unlock()
-		atomic.AddUint64(&s.getClientStats(clientID).MessageStats.Qos0.SentTotal, 1)
+		atomic.AddUint64(&s.getClientStats(clientID).MessageStats.Qos1.SentTotal, 1)
 	case packets.Qos2:
 		atomic.AddUint64(&s.totalStats.MessageStats.Qos2.SentTotal, 1)
 		s.clientMu.Lock()
 		defer s.clientMu.Unlock()
-		atomic.AddUint64(&s.getClientStats(clientID).MessageStats.Qos0.SentTotal, 1)
+		atomic.AddUint64(&s.getClientStats(clientID).MessageStats.Qos2.SentTotal, 1)
 	}
 }
 
@@ -273,6 +273,7 @@ type PacketBytes struct {
 
 func (p *PacketBytes) copy() PacketBytes {
 	return PacketBytes{
+		Auth:        atomic.LoadUint64(&p.Auth),
 		Connect:     atomic.LoadUint64(&p.Connect),
 		Connack:     atomic.LoadUint64(&p.Connack),
 		Disconnect:  atomic.LoadUint64(&p.Disconnect),
@@ -365,7 +366,7 @@ func (s *statsManager) addInflight(clientID string, delta uint64) {
 	defer s.clientMu.Unlock()
 	sts := s.getClientStats(clientID)
 	atomic.AddUint64(&sts.MessageStats.InflightCurrent, delta)
-	atomic.AddUint64(&s.totalStats.MessageStats.InflightCurrent, 1)
+	atomic.AddUint64(&s.totalStats.MessageStats.InflightCurrent, delta)
 }
 func (s *statsManager) decInflight(clientID string, delta uint64) {
 	s.clientMu.Lock()
