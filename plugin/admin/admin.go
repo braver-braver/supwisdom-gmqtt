@@ -42,7 +42,7 @@ func (a *Admin) registerHTTP(g server.APIRegistrar) (err error) {
 	if err != nil {
 		return err
 	}
-	return nil
+	return a.registerDashboardHTTP(g)
 }
 
 func (a *Admin) Load(service server.Server) error {

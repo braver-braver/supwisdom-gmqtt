@@ -72,3 +72,24 @@ $ curl -X POST 127.0.0.1:8083/v1/publish -d '{"topic_name":"a","payload":"test",
 ```
 This curl will publish the message to the broker.The broker will check if there are matched topics and
 send the message to the subscribers, just like received a message from a MQTT client.
+
+## Embedded monitoring dashboard
+
+The admin plugin includes a lightweight read-only dashboard in the gmqttd binary. No separate web process, static-file deployment, Node.js runtime, or frontend build step is required.
+
+With the default API configuration, open:
+
+```text
+http://127.0.0.1:8083/admin/
+```
+
+The dashboard refreshes every five seconds and provides:
+
+- broker/session/message/queue overview counters
+- client session monitoring
+- subscription monitoring
+- federation membership when the federation plugin is enabled
+
+The dashboard is read-only. Existing mutating REST and gRPC admin APIs are unchanged and remain available to API clients.
+
+The default HTTP API endpoint listens on loopback. If you expose the admin endpoint beyond the local host, configure TLS and appropriate access controls or put it behind a trusted reverse proxy.

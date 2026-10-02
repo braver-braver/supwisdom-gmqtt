@@ -25,7 +25,7 @@ import (
 // APIRegistrar is the registrar for all gRPC servers and HTTP servers.
 // It provides the ability for plugins to register gRPC and HTTP handler.
 type APIRegistrar interface {
-	// RegisterHTTPHandler registers the handler to all http servers.
+	// RegisterHTTPHandler registers the gRPC-gateway handler to all HTTP servers.
 	RegisterHTTPHandler(fn HTTPHandler) error
 	// RegisterService registers a service and its implementation to all gRPC servers.
 	RegisterService(desc *grpc.ServiceDesc, impl interface{})
@@ -63,6 +63,13 @@ func (a *apiRegistrar) RegisterHTTPHandler(fn HTTPHandler) error {
 	return nil
 }
 
+// RegisterHTTPRoute registers a standard HTTP handler to all HTTP servers.
+func (a *apiRegistrar) RegisterHTTPRoute(pattern string, handler http.Handler) {
+	for _, v := range a.httpServers {
+		v.rootMux.Handle(pattern, handler)
+	}
+}
+
 type gRPCServer struct {
 	server   *grpc.Server
 	serve    func(errChan chan error) error
@@ -74,6 +81,7 @@ type httpServer struct {
 	gRPCEndpoint string
 	endpoint     string
 	mux          *runtime.ServeMux
+	rootMux      *http.ServeMux
 	tlsCfg       *tls.Config
 	serve        func(errChan chan error) error
 	shutdown     func()
@@ -172,8 +180,10 @@ func buildHTTPServer(endpoint *config.Endpoint) (*httpServer, error) {
 		}
 	}
 	mux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
+	rootMux := http.NewServeMux()
+	rootMux.Handle("/", mux)
 	server := &http.Server{
-		Handler: mux,
+		Handler: rootMux,
 	}
 	shutdown := func() {
 		server.Shutdown(context.Background())
@@ -199,6 +209,7 @@ func buildHTTPServer(endpoint *config.Endpoint) (*httpServer, error) {
 	return &httpServer{
 		gRPCEndpoint: endpoint.Map,
 		mux:          mux,
+		rootMux:      rootMux,
 		serve:        serve,
 		shutdown:     shutdown,
 		endpoint:     endpoint.Address,
