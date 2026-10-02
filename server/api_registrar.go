@@ -27,8 +27,6 @@ import (
 type APIRegistrar interface {
 	// RegisterHTTPHandler registers the gRPC-gateway handler to all HTTP servers.
 	RegisterHTTPHandler(fn HTTPHandler) error
-	// RegisterHTTPRoute registers a standard HTTP handler to all HTTP servers.
-	RegisterHTTPRoute(pattern string, handler http.Handler)
 	// RegisterService registers a service and its implementation to all gRPC servers.
 	RegisterService(desc *grpc.ServiceDesc, impl interface{})
 }
