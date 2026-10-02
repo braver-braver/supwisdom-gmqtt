@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>GMQTT Admin · Overview</title>
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">G</div>
+        <div>
+          <strong>GMQTT</strong>
+          <span>Admin</span>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Dashboard sections">
+        <button type="button" class="nav-item active" data-view="overview">Overview</button>
+        <button type="button" class="nav-item" data-view="clients">Clients</button>
+        <button type="button" class="nav-item" data-view="subscriptions">Subscriptions</button>
+        <button type="button" class="nav-item" data-view="federation">Federation</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span class="eyebrow">Read-only monitor</span>
+        <span>Auto refresh · 5s</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Broker observability</p>
+          <h1>GMQTT Admin</h1>
+        </div>
+        <div class="topbar-actions">
+          <div class="status-pill" aria-live="polite">
+            <span id="status-dot" class="status-dot"></span>
+            <span id="status-text">Connecting…</span>
+          </div>
+          <span id="last-updated" class="muted">Not updated</span>
+          <button id="refresh-now" type="button" class="button">Refresh</button>
+        </div>
+      </header>
+
+      <section class="view active" data-view-name="overview">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Overview</p>
+            <h2>Broker at a glance</h2>
+          </div>
+          <p class="section-note">Live counters from the broker stats manager.</p>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric-card accent">
+            <span>Active sessions</span>
+            <strong id="metric-active-sessions">—</strong>
+          </article>
+          <article class="metric-card">
+            <span>Subscriptions</span>
+            <strong id="metric-subscriptions">—</strong>
+          </article>
+          <article class="metric-card">
+            <span>Messages received</span>
+            <strong id="metric-received">—</strong>
+          </article>
+          <article class="metric-card">
+            <span>Messages sent</span>
+            <strong id="metric-sent">—</strong>
+          </article>
+          <article class="metric-card">
+            <span>Inflight</span>
+            <strong id="metric-inflight">—</strong>
+          </article>
+          <article class="metric-card">
+            <span>Queued</span>
+            <strong id="metric-queued">—</strong>
+          </article>
+          <article class="metric-card warn">
+            <span>Dropped</span>
+            <strong id="metric-dropped">—</strong>
+          </article>
+        </div>
+
+        <div class="panel-grid">
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Lifecycle</p>
+                <h3>Connections & sessions</h3>
+              </div>
+            </div>
+            <dl class="stat-list">
+              <div><dt>Connections total</dt><dd id="connections-total">—</dd></div>
+              <div><dt>Disconnections total</dt><dd id="disconnections-total">—</dd></div>
+              <div><dt>Inactive sessions</dt><dd id="sessions-inactive">—</dd></div>
+              <div><dt>Subscriptions total</dt><dd id="subscriptions-total">—</dd></div>
+            </dl>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Transport</p>
+                <h3>Packet totals</h3>
+              </div>
+            </div>
+            <dl class="stat-list">
+              <div><dt>Packets received</dt><dd id="packets-received">—</dd></div>
+              <div><dt>Packets sent</dt><dd id="packets-sent">—</dd></div>
+              <div><dt>Bytes received</dt><dd id="bytes-received">—</dd></div>
+              <div><dt>Bytes sent</dt><dd id="bytes-sent">—</dd></div>
+            </dl>
+          </article>
+        </div>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">MQTT delivery</p>
+              <h3>QoS distribution</h3>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Level</th><th>Received</th><th>Sent</th><th>Dropped</th></tr></thead>
+              <tbody id="qos-body"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="view" data-view-name="clients">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Clients</p>
+            <h2>Client sessions</h2>
+          </div>
+          <div>
+            <span id="clients-count" class="count-chip">—</span>
+            <span id="clients-error" class="error-text"></span>
+          </div>
+        </div>
+        <article class="panel table-panel">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Client ID</th><th>State</th><th>Remote address</th><th>Protocol</th><th>Inflight</th><th>Queued</th><th>Subs</th><th>Connected</th></tr>
+              </thead>
+              <tbody id="clients-body"><tr><td colspan="8" class="empty">Open this tab to load clients.</td></tr></tbody>
+            </table>
+          </div>
+          <p class="table-footnote">Showing up to 100 sessions from the existing admin API.</p>
+        </article>
+      </section>
+
+      <section class="view" data-view-name="subscriptions">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Subscriptions</p>
+            <h2>Active topic filters</h2>
+          </div>
+          <div>
+            <span id="subscriptions-count" class="count-chip">—</span>
+            <span id="subscriptions-error" class="error-text"></span>
+          </div>
+        </div>
+        <article class="panel table-panel">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Topic</th><th>Client ID</th><th>QoS</th><th>No local</th><th>Retain as published</th></tr>
+              </thead>
+              <tbody id="subscriptions-body"><tr><td colspan="5" class="empty">Open this tab to load subscriptions.</td></tr></tbody>
+            </table>
+          </div>
+          <p class="table-footnote">Showing up to 100 subscriptions from the existing admin API.</p>
+        </article>
+      </section>
+
+      <section class="view" data-view-name="federation">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Federation</p>
+            <h2>Cluster membership</h2>
+          </div>
+          <span id="federation-error" class="error-text"></span>
+        </div>
+        <div id="federation-panel">
+          <div class="empty-card">Open this tab to load federation members.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>

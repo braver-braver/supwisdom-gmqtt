@@ -7,6 +7,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
@@ -216,6 +218,34 @@ func TestApiRegistrar_RegisterHTTPHandler(t *testing.T) {
 		a.Equal("127.0.0.1:1234", endpoint)
 		return nil
 	}))
+}
+
+
+func TestAPIRegistrar_RegisterHTTPRoute(t *testing.T) {
+	a := assert.New(t)
+	rootMux := http.NewServeMux()
+	rootMux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+	}))
+	reg := &apiRegistrar{
+		httpServers: []*httpServer{
+			{
+				rootMux: rootMux,
+			},
+		},
+	}
+
+	reg.RegisterHTTPRoute("/admin/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	resp := httptest.NewRecorder()
+	rootMux.ServeHTTP(resp, httptest.NewRequest(http.MethodGet, "/admin/", nil))
+	a.Equal(http.StatusNoContent, resp.Code)
+
+	resp = httptest.NewRecorder()
+	rootMux.ServeHTTP(resp, httptest.NewRequest(http.MethodGet, "/v1/test", nil))
+	a.Equal(http.StatusTeapot, resp.Code)
 }
 
 func TestBuildTLSConfig(t *testing.T) {
