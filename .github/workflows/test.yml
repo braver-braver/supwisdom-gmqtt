@@ -1,10 +1,10 @@
 on:
   push:
     branches:
-      - master
+      - tag-v0.4.1
   pull_request:
     branches:
-      - master
+      - tag-v0.4.1
 
 name: run tests
 jobs:
