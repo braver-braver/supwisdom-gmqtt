@@ -137,7 +137,7 @@ func TestFederation_OnMsgArrivedWrapper_SharedSubscription(t *testing.T) {
 	testCfg := config.Config{
 		Plugins: map[string]config.Configuration{
 			Name: &Config{
-				NodeName:             "test-node-shared",
+				NodeName:             "node0-shared",
 				FedAddr:              "127.0.0.1:8911",
 				AdvertiseFedAddr:     "127.0.0.1:8911",
 				GossipAddr:           "127.0.0.1:8912",
